@@ -6,13 +6,13 @@ import math
 diabetes = datasets.load_diabetes(as_frame=True)
 diadf = diabetes['frame']
 ddf = diadf.drop(['sex'],axis=1)
-ddf=ddf[1:16]
+ddf=ddf[1:400]
 X=ddf.drop(['target'],axis=1)
 Y=ddf['target']
 Xnp=np.array(X)
 Ynp=np.array(Y)
 # print(Ynp)
-Ynp=Ynp.reshape((1,15))
+Ynp=Ynp.reshape((1,399))
 # print(Ynp.shape)
 # print(Ynp)
 # print("Basic Input taken into training")
@@ -31,7 +31,7 @@ def wbinitialise(hd,hdn,inp) :
     weights.insert(0,weights_i)
     weights.append(weights_o)
     biases.append(np.random.random((1,1)))
-    # print(biases[-1])
+    # print(biases[1])
 
     return weights,biases
 
@@ -49,7 +49,7 @@ def forwardpp(input,WgtM,Biasv,nhd,truout):                            # Simple 
       a=[]
       h=[]
       inc=np.transpose(input)                  # This transformation sets the rows to be features and columns to be different
-                                               # datapoints
+      # print(inc.shape)                                         # datapoints
 
       for x in range(nhd):
           # print("Weight matrix in layer ",x+1)
@@ -61,7 +61,7 @@ def forwardpp(input,WgtM,Biasv,nhd,truout):                            # Simple 
           # print(x)
           # print(WgtM[x].shape)
           # print(inc.shape)
-          a_ins = np.matmul(WgtM[x], inc) + Biasv[x]
+          a_ins = WgtM[x] @ inc + Biasv[x]               # @ signifies matrix multiplication
           h_ins = sigmoid(a_ins)
           a.append(a_ins)
           h.append(h_ins)
@@ -69,10 +69,12 @@ def forwardpp(input,WgtM,Biasv,nhd,truout):                            # Simple 
 
       a_ins = np.matmul(WgtM[-1],h_ins)+Biasv[-1]
       a.append(a_ins)
-      yt=1*a_ins                                                     # Output layer activation fn is 1 (Linear)
-      loss = lossfn(truout, yt)
+      yp=1*a_ins                                                     # Output layer activation fn is 1 (Linear)
+      # print(yp.shape)
+      # print(truout.shape)
+      loss = lossfn(truout, yp)
 
-      return h,a,yt,loss             # We get the dimension of output matrix to be
+      return h,a,yp,loss             # We get the dimension of output matrix to be
                               # (number of datapoints, number of neurons)
 
 def lossfn(Yt,Yp):
@@ -89,7 +91,7 @@ def sigderv(input):
 
 def backpropagation(hlist,alist,Yt,Yp,hd,wgtlist,Xt):
     # print("Back propagation fn is run")
-    outlaygrad_a = -1*(np.subtract(Yt,Yp))
+    outlaygrad_a = -1*(Yt - Yp)
 
     presentlaygrad_a = outlaygrad_a
     grad_w_list = []
@@ -119,7 +121,7 @@ def backpropagation(hlist,alist,Yt,Yp,hd,wgtlist,Xt):
         # print(presentlaygrad_w.shape)
 
     # print(presentlaygrad_a.shape)
-    # print(Xt.shape)
+    print(Xt.shape)
     grad_w_lay1 = np.matmul((presentlaygrad_a),Xt)
     # print(grad_w_lay1.shape)
 
@@ -142,22 +144,59 @@ def backpropagation(hlist,alist,Yt,Yp,hd,wgtlist,Xt):
 
 
 def gd(wgtlist,biaslist,gradWlist,gradblist,nhl):       # Gradient Descent
-    upWlist=[]
-    upblist=[]
-
+    upWlist = []
+    upblist = []
+    n = 0.0001
     for x in range(nhl+1):
         # print("Weight matrix shape in layer ",x+1)
         # print(wgtlist[x].shape)
         # print("Grad Weight matrix shape in layer ",x+1)
         # print(gradWlist[x].shape)
-        upWlist.append(np.subtract(wgtlist[x],gradWlist[x]))
-        print("Bias vector shape in layer ",x+1)
-        print(biaslist[x].shape)
-        print("Grad Bias vector shape in layer ",x+1)
-        print(gradblist[x].shape)
-        upblist.append(np.subtract(biaslist[x],gradblist[x]))
+        upWlist.append(wgtlist[x]-n*gradWlist[x])
+        # print("Bias vector shape in layer ",x+1)
+        # print(biaslist[x].shape)
+        # print("Grad Bias vector shape in layer ",x+1)
+        # print(gradblist[x].shape)
+        upblist.append(biaslist[x]-n*gradblist[x])
 
     return upWlist,upblist
+
+
+def adam (wgtlist,biaslist,gradWlist,gradblist,nhl,mw,vw,mb,vb,count):
+
+    beta1 = 0.5
+    beta2 = 0.5
+    eps = 0.01
+    n = 0.1
+
+    mhatw = []
+    vhatw = []
+    mhatb = []
+    vhatb = []
+    upWlist = []
+    upblist = []
+
+    for x in range(nhl+1):
+        # print(x)
+        mw[x] = beta1 * mw[x] + (1-beta1)*gradWlist[x]
+        vw[x] = beta2 * vw[x] + (1 - beta2) * np.square(gradWlist[x])
+        mhatw.append(mw[x] / (1-beta1**count))
+        vhatw.append(vw[x] / (1 - beta2**count))
+
+        upWlist.append(wgtlist[x] - n*np.divide(mhatw[x],np.sqrt(vhatw[x]+eps)))
+
+
+
+        mb[x] = beta1 * mb[x] + (1 - beta1) * gradblist[x]
+        vb[x] = beta2 * vb[x] + (1 - beta2) * np.square(gradblist[x])
+        mhatb.append(mb[x] / (1-beta1**count))
+        vhatb.append(vb[x] / (1 - beta2**count))
+
+        upblist.append(biaslist[x] - n * np.divide(mhatb[x], np.sqrt(vhatb[x] + eps)))
+
+    return upWlist,upblist,mw,vw,mb,vb
+
+
 
 
 
@@ -165,13 +204,25 @@ def MLFNN(Trainingdata,Weightsl,Biasl,num_hiddn_l,target):
     H,A,yout,loss = forwardpp(Trainingdata,Weightsl,Biasl,num_hiddn_l,target)
     count = 1
     newW=Weightsl
+    update = 'gd'
+
+    mw = [np.zeros(Weightsl[x].shape) for x in range(num_hiddn_l+1)]
+    vw = [np.zeros(Weightsl[x].shape) for x in range(num_hiddn_l+1)]
+    mb = [np.zeros(Biasl[x].shape) for x in range(num_hiddn_l+1)]
+    vb = [np.zeros(Biasl[x].shape) for x in range(num_hiddn_l+1)]
+
+
     # while(loss > 0.01):
 
-    for x in range(7):
+    for x in range(10):
         print("Loss value after ",count , "epochs :")
         print(loss)
         gWlist,gblist,ghlist,galist = backpropagation(H,A,target,yout,n_hd_l,newW,Trainingdata)
-        newW,newB = gd(Weightsl,Biasl,gWlist,gblist,num_hiddn_l)
+        if (update == 'gd'):
+            newW,newB = gd(Weightsl,Biasl,gWlist,gblist,num_hiddn_l)
+        elif (update == 'adam'):
+            newW, newB,mw,vw,mb,vb = adam(Weightsl,Biasl,gWlist,gblist,num_hiddn_l,mw,vw,mb,vb,count)
+
         H,A,yout,loss = forwardpp(Xnp,newW,newB,n_hd_l,Ynp)
 
         # plt.plot(count,math.log(loss,10),'r')
